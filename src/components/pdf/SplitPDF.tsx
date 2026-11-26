@@ -1,3 +1,4 @@
+
 import { useState, useRef } from 'react'
 import { PDFDocument } from 'pdf-lib'
 import { Upload, Scissors, Download, Loader2, ArrowLeft } from 'lucide-react'
@@ -16,8 +17,10 @@ export default function SplitPDF() {
       setError('Please select a PDF file')
       return
     }
+
     setError('')
     setFile(f)
+
     try {
       const bytes = await f.arrayBuffer()
       const pdf = await PDFDocument.load(bytes)
@@ -30,23 +33,28 @@ export default function SplitPDF() {
 
   const splitPDF = async () => {
     if (!file) return
+
     setProcessing(true)
     setError('')
+
     try {
       const bytes = await file.arrayBuffer()
       const srcPdf = await PDFDocument.load(bytes)
       const total = srcPdf.getPageCount()
 
-      // Parse ranges like "1-3,5,7-9"
       const pageSets: number[][] = []
+
       ranges.split(',').forEach(part => {
         part = part.trim()
+
         if (part.includes('-')) {
           const [start, end] = part.split('-').map(n => parseInt(n.trim()))
           const pages: number[] = []
+
           for (let i = Math.max(1, start); i <= Math.min(total, end); i++) {
             pages.push(i - 1)
           }
+
           if (pages.length) pageSets.push(pages)
         } else {
           const p = parseInt(part)
@@ -56,21 +64,29 @@ export default function SplitPDF() {
 
       if (pageSets.length === 0) {
         setError('Invalid page ranges')
-        setProcessing(false)
         return
       }
 
       for (let i = 0; i < pageSets.length; i++) {
         const newPdf = await PDFDocument.create()
         const pages = await newPdf.copyPages(srcPdf, pageSets[i])
+
         pages.forEach(p => newPdf.addPage(p))
+
         const outBytes = await newPdf.save()
-        const blob = new Blob([outBytes], { type: 'application/pdf' })
+
+        const blob = new Blob(
+          [new Uint8Array(outBytes).buffer as ArrayBuffer],
+          { type: 'application/pdf' }
+        )
+
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
+
         a.href = url
         a.download = `split-${i + 1}.pdf`
         a.click()
+
         URL.revokeObjectURL(url)
       }
     } catch (err) {
@@ -94,21 +110,42 @@ export default function SplitPDF() {
 
       <div
         onDragOver={e => e.preventDefault()}
-        onDrop={e => { e.preventDefault(); handleFile(e.dataTransfer.files[0]) }}
+        onDrop={e => {
+          e.preventDefault()
+          handleFile(e.dataTransfer.files[0])
+        }}
         onClick={() => inputRef.current?.click()}
         className="border-2 border-dashed border-slate-700 hover:border-purple-500/50 rounded-xl p-10 text-center cursor-pointer transition bg-navy-700/50 mb-6"
       >
         <Upload className="w-10 h-10 text-purple-400 mx-auto mb-3" />
-        <p className="font-medium mb-1">{file ? file.name : 'Drop PDF here or click to browse'}</p>
-        <p className="text-xs text-slate-500">{pageCount > 0 ? `${pageCount} pages` : 'Select a PDF file'}</p>
-        <input ref={inputRef} type="file" accept="application/pdf" className="hidden" onChange={e => handleFile(e.target.files?.[0] || null)} />
+        <p className="font-medium mb-1">
+          {file ? file.name : 'Drop PDF here or click to browse'}
+        </p>
+        <p className="text-xs text-slate-500">
+          {pageCount > 0 ? `${pageCount} pages` : 'Select a PDF file'}
+        </p>
+
+        <input
+          ref={inputRef}
+          type="file"
+          accept="application/pdf"
+          className="hidden"
+          onChange={e => handleFile(e.target.files?.[0] || null)}
+        />
       </div>
 
-      {error && <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg p-3 mb-4">{error}</div>}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg p-3 mb-4">
+          {error}
+        </div>
+      )}
 
       {file && (
         <div className="mb-6">
-          <label className="block text-sm font-medium mb-2">Page ranges (e.g. 1-3, 5, 7-9)</label>
+          <label className="block text-sm font-medium mb-2">
+            Page ranges (e.g. 1-3, 5, 7-9)
+          </label>
+
           <input
             type="text"
             value={ranges}
@@ -124,7 +161,17 @@ export default function SplitPDF() {
         disabled={!file || processing}
         className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50"
       >
-        {processing ? <><Loader2 className="w-5 h-5 animate-spin" /> Splitting...</> : <><Download className="w-5 h-5" /> Split & Download</>}
+        {processing ? (
+          <>
+            <Loader2 className="w-5 h-5 animate-spin" />
+            Splitting...
+          </>
+        ) : (
+          <>
+            <Download className="w-5 h-5" />
+            Split & Download
+          </>
+        )}
       </button>
     </div>
   )
